@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -10,7 +9,7 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
     public class CompanyService:ICompanyService
     {
         private IEnumerable<Models.Company> _companies;
-        private HttpClient _httpClient;
+        private readonly HttpClient _httpClient;
 
         private const string CompaniesFolder = "Companies";
         private const string CompaniesFileName = "companies.json";
@@ -20,33 +19,32 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
             _httpClient = new HttpClient();
         }
 
+        #region UpdateCompanies
         public async Task UpdateCompanies()
         {
             const string uri = "http://offlinestorageserver.azurewebsites.net/api/values";
             var httpResult = await _httpClient.GetAsync(uri);
             var jsonCompanies = await httpResult.Content.ReadAsStringAsync();
 
-            var companies = JsonConvert.DeserializeObject<IEnumerable<Models.Company>>(jsonCompanies);
+            var companies = JsonConvert.DeserializeObject<ICollection<Models.Company>>(jsonCompanies);
             var folder = await NavigateToFolder(CompaniesFolder);
 
-            await GetImages(companies, folder);
+            await StoreImagesLocally(folder, companies);
 
-            IFile file = await folder.CreateFileAsync(CompaniesFileName, CreationCollisionOption.ReplaceExisting);
-
-            await file.WriteAllTextAsync(jsonCompanies);
+            await SerializeCompanies(folder, companies);
 
             _companies = companies;
         }
 
-        private async Task GetImages(IEnumerable<Models.Company> companies, IFolder folder)
+        private static async Task SerializeCompanies(IFolder folder, ICollection<Models.Company> companies)
         {
-            //        response.EnsureSuccessStatusCode();
+            IFile file = await folder.CreateFileAsync(CompaniesFileName, CreationCollisionOption.ReplaceExisting);
+            var companiesString = JsonConvert.SerializeObject(companies);
+            await file.WriteAllTextAsync(companiesString);
+        }
 
-            //        using (IInputStream inputStream = await response.Content.ReadAsInputStreamAsync())
-            //        {
-            //            bitmapImage.SetSource(inputStream.AsStreamForRead());
-            //        }
-
+        private async Task StoreImagesLocally(IFolder folder, IEnumerable<Models.Company> companies)
+        {
             foreach (var company in companies)
             {
                 var file = await folder.CreateFileAsync(company.Name + ".jpg", CreationCollisionOption.ReplaceExisting);
@@ -60,16 +58,9 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
                 }
             }
         }
+        #endregion
 
-        private static async Task<IFolder> NavigateToFolder(string targetFolder)
-        {
-            IFolder rootFolder = FileSystem.Current.LocalStorage;
-            IFolder folder = await rootFolder.CreateFolderAsync(targetFolder,
-                CreationCollisionOption.OpenIfExists);
-
-            return folder;
-        }
-
+        #region GetCompanies
         public async Task<IEnumerable<Models.Company>> GetCompanies()
         {
             return _companies ?? (_companies = await ReadCompaniesFromFile());
@@ -92,6 +83,16 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
             var companies = JsonConvert.DeserializeObject<IEnumerable<Models.Company>>(jsonCompanies);
 
             return companies;
+        }
+        #endregion
+
+        private static async Task<IFolder> NavigateToFolder(string targetFolder)
+        {
+            IFolder rootFolder = FileSystem.Current.LocalStorage;
+            IFolder folder = await rootFolder.CreateFolderAsync(targetFolder,
+                CreationCollisionOption.OpenIfExists);
+
+            return folder;
         }
     }
 }
