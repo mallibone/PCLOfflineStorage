@@ -22,15 +22,15 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
         #region UpdateCompanies
         public async Task UpdateCompanies()
         {
+            // URL should point to where your service is running
             const string uri = "http://offlinestorageserver.azurewebsites.net/api/values";
             var httpResult = await _httpClient.GetAsync(uri);
             var jsonCompanies = await httpResult.Content.ReadAsStringAsync();
 
             var companies = JsonConvert.DeserializeObject<ICollection<Models.Company>>(jsonCompanies);
+
             var folder = await NavigateToFolder(CompaniesFolder);
-
-            await StoreImagesLocally(folder, companies);
-
+            await StoreImagesLocallyAndUpdatePath(folder, companies);
             await SerializeCompanies(folder, companies);
 
             _companies = companies;
@@ -43,7 +43,7 @@ namespace XamarinFormsOfflineStorage.Services.Company.Impl
             await file.WriteAllTextAsync(companiesString);
         }
 
-        private async Task StoreImagesLocally(IFolder folder, IEnumerable<Models.Company> companies)
+        private async Task StoreImagesLocallyAndUpdatePath(IFolder folder, IEnumerable<Models.Company> companies)
         {
             foreach (var company in companies)
             {
